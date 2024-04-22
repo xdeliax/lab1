@@ -3,13 +3,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 int main(int argc, char *argv[])
 {
 	int n = argc - 1;
 	int pipes[n-1][2]; // 0 = read end; 1 = write end
 	int i;
-	int fd_in = STDIN_FILENO;
 
 	if (argc <2)
 	{
@@ -47,12 +47,12 @@ int main(int argc, char *argv[])
 		{
 			if (i > 0) // set up read end of pipe (after the first command)
 			{
+				close(pipes[i-1][0]);
 				if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) // redirect standard input of current process to read from the read end of the last pipe
 				{
 					perror("dup2");
                     exit(errno);
 				}
-				close(pipes[i-1][0]);
 			}
 
 			if (i < n - 1) // set up write end of pipe (before the last command)
@@ -75,6 +75,7 @@ int main(int argc, char *argv[])
 		else
 		{
 			close(pipes[i][1]); // close write end and wait for children processes to terminate
+			int status;
 			waitpid(pid, &status, 0);
             if (WIFEXITED(status) && WEXITSTATUS(status) != 0) // if child process failed
 			{
