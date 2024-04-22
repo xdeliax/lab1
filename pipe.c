@@ -7,7 +7,7 @@
 int main(int argc, char *argv[])
 {
 	int n = argc - 1;
-	int pipes[2]; // 0 = read end; 1 = write end
+	int pipes[n-1][2]; // 0 = read end; 1 = write end
 	int i;
 	int fd_in = STDIN_FILENO;
 
@@ -24,13 +24,19 @@ int main(int argc, char *argv[])
         } 
     }
 
+	for (i = 0; i < n - 1; i++) 
+	{
+        if (pipe(pipes[i]) == -1) 
+		{
+            perror("pipe");
+            exit(errno);
+        }
+    }
+
+	pipes[0][0] = STDIN_FILENO; // first process reads from standard input
+
 	for (i = 0; i < n; i++) // for each process
 	{
-		if (pipe(pipes) == -1)
-		{
-			perror("pipe");
-			exit(errno); 
-		}
 		pid_t pid = fork(); // fork the process
 		if (pid < 0)
 		{
@@ -41,23 +47,23 @@ int main(int argc, char *argv[])
 		{
 			if (i > 0) // set up read end of pipe (after the first command)
 			{
-				if (dup2(pipes[0], STDIN_FILENO) == -1) // redirect standard input of current process to read from the read end of the last pipe
+				if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) // redirect standard input of current process to read from the read end of the last pipe
 				{
 					perror("dup2");
                     exit(errno);
 				}
+				close(pipes[i-1][0]);
 			}
-			close(pipes[0]);
 
 			if (i < n - 1) // set up write end of pipe (before the last command)
 			{
-				if (dup2(pipes[1], STDOUT_FILENO) == -1) // redirect standard output of current process to write to the write end of the pipe
+				if (dup2(pipes[i][1], STDOUT_FILENO) == -1) // redirect standard output of current process to write to the write end of the pipe
 				{
 					perror("dup2");
                     exit(errno);
 				}
+				close(pipes[i][1]);
 			}
-			close(pipes[1]);
 
             if (execlp(argv[i + 1], argv[i + 1], NULL) == -1) // execute the executable
 			{
@@ -68,38 +74,18 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			close(pipes[1]); // close write end and wait for children processes to terminate
+			close(pipes[i][1]); // close write end and wait for children processes to terminate
 			waitpid(pid, &status, 0);
             if (WIFEXITED(status) && WEXITSTATUS(status) != 0) // if child process failed
 			{
                 int exit_status = WEXITSTATUS(status);
-                close(pipes[0]);
+                close(pipes[i][0]);
                 exit(exit_status);
             }
-			close(pipes[0]);
+			close(pipes[i][0]);
 
 		}
 	}
-
-	for (i = 0; i < n; i++) // wait for all child processes to terminate
-	{
-        int status;
-        pid_t pid = wait(&status);
-        if (pid == -1) {
-            if (errno == ECHILD) {
-                exit(errno); // there are no more child processes
-            } else {
-                perror("wait");
-                exit(errno);
-            }
-        } else {
-            if (!WIFEXITED(status)) {
-                perror("Child process did not exit normally");
-    			exit(errno);
-            }
-        }
-    }
-
 
 	return 0;
 }
