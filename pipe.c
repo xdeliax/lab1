@@ -47,12 +47,13 @@ int main(int argc, char *argv[])
 		{
 			if (i > 0) // set up read end of pipe (after the first command)
 			{
-				close(pipes[i-1][0]);
 				if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) // redirect standard input of current process to read from the read end of the last pipe
 				{
 					perror("dup2");
                     exit(errno);
 				}
+				close(pipes[i-1][0]);
+
 			}
 
 			if (i < n - 1) // set up write end of pipe (before the last command)
