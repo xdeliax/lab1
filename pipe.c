@@ -33,8 +33,6 @@ int main(int argc, char *argv[])
         }
     }
 
-	pipes[0][0] = STDIN_FILENO; // first process reads from standard input
-
 	for (i = 0; i < n; i++) // for each process
 	{
 		pid_t pid = fork(); // fork the process
@@ -75,7 +73,8 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			close(pipes[i][1]); // close write end and wait for children processes to terminate
+			if (i < n - 1)
+				close(pipes[i][1]); // close write end and wait for children processes to terminate
 			int status;
 			waitpid(pid, &status, 0);
             if (WIFEXITED(status) && WEXITSTATUS(status) != 0) // if child process failed
@@ -84,7 +83,6 @@ int main(int argc, char *argv[])
                 close(pipes[i][0]);
                 exit(exit_status);
             }
-			close(pipes[i][0]);
 
 		}
 	}
