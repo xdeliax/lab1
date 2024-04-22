@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 
 	if (argc <2)
 	{
-		return EINVAL; // invalid arguments
+		exit(EINVAL); // invalid arguments
 	}
 
 	if (argc == 2) 
